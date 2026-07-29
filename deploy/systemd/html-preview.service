@@ -1,0 +1,21 @@
+[Unit]
+Description=HTML Preview Service
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/opt/html-preview
+Environment=HOST=127.0.0.1
+Environment=PORT=7849
+Environment=HTML_PREVIEW_DATA=/var/lib/html-preview
+ExecStart=/opt/html-preview/html-preview
+Restart=on-failure
+RestartSec=5
+
+# 截图时 Chrome 会短时占用较多内存，限制上限避免影响同机其他服务
+MemoryMax=1200M
+
+[Install]
+WantedBy=multi-user.target

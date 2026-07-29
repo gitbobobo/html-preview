@@ -4,3 +4,5 @@
 *.test
 *.out
 .DS_Store
+scripts/deploy.local.sh
+scripts/.deploy-known-hosts
