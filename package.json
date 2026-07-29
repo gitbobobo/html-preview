@@ -1,0 +1,14 @@
+{
+  "name": "html-preview",
+  "private": true,
+  "packageManager": "pnpm@11.10.0",
+  "scripts": {
+    "build": "CGO_ENABLED=0 go build -o html-preview .",
+    "dev": "CGO_ENABLED=0 HOST=0.0.0.0 go run .",
+    "start": "pnpm build && HOST=0.0.0.0 ./html-preview",
+    "test": "CGO_ENABLED=0 go test ./...",
+    "vet": "CGO_ENABLED=0 go vet ./...",
+    "check": "pnpm vet && pnpm test && node --check web/js/*.js",
+    "clean": "rm -f html-preview"
+  }
+}

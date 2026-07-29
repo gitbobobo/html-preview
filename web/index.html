@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HTML Preview</title>
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <div class="atmosphere" aria-hidden="true"></div>
+
+  <div id="app" class="app hidden">
+    <header class="topbar" id="topbar">
+      <div class="topbar-left">
+        <a href="/" class="brand" data-link>HTML Preview</a>
+        <nav class="nav" id="main-nav">
+          <a href="/" class="nav-link" data-link data-route="/">库</a>
+          <a href="/trash" class="nav-link" data-link data-route="/trash">回收站</a>
+          <a href="/settings" class="nav-link" data-link data-route="/settings">设置</a>
+        </nav>
+      </div>
+      <div class="topbar-right">
+        <button type="button" class="btn btn-primary" id="btn-upload">上传</button>
+        <button type="button" class="btn btn-ghost" id="btn-logout">退出</button>
+      </div>
+    </header>
+    <main id="main" class="main"></main>
+  </div>
+
+  <div id="auth-view" class="auth-view hidden"></div>
+
+  <div id="drawer-overlay" class="drawer-overlay hidden" aria-hidden="true">
+    <div class="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
+      <header class="drawer-header">
+        <h2 id="drawer-title"></h2>
+        <button type="button" class="btn-icon" id="drawer-close" aria-label="关闭">&times;</button>
+      </header>
+      <div class="drawer-body" id="drawer-body"></div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden" role="status"></div>
+  <input type="file" id="file-input" class="sr-only" accept=".html,.htm,.zip">
+
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>
