@@ -2,9 +2,10 @@
  * Home — brand + search + grid; whole page is drop target.
  */
 
-import { escapeHtml, formatDate } from './util.js';
+import { formatDate } from './util.js';
 import { getItem } from './api.js';
-import { renderCardThumb, applyItemToCard } from './thumb.js';
+import { applyItemToCard } from './thumb.js';
+import { tileCardHTML } from './tile.js';
 import { openDrawer } from './drawer.js';
 import { createItemListPage } from './item-list.js';
 import { uploadFile } from './upload.js';
@@ -13,6 +14,13 @@ let list = null;
 let dragDepth = 0;
 const screenshotWatchers = new Map();
 
+/** Parse a single root element from an HTML string. */
+function htmlToElement(html) {
+  const template = document.createElement('template');
+  template.innerHTML = html.trim();
+  return template.content.firstElementChild;
+}
+
 /** Called after a successful upload (header or drop). */
 export function prependUploadedItem(item) {
   if (!list) return false;
@@ -20,19 +28,8 @@ export function prependUploadedItem(item) {
   state.items.unshift(item);
   const grid = list.getGrid();
   if (!grid) return false;
-  const card = document.createElement('article');
-  card.className = 'tile';
-  card.dataset.id = item.id;
+  const card = htmlToElement(tileCardHTML(item));
   card.dataset.bound = '1';
-  card.innerHTML = `
-    <a class="tile-media" href="/c/${escapeHtml(item.id)}/" target="_blank" rel="noopener">${renderCardThumb(item)}</a>
-    <div class="tile-caption">
-      <div class="tile-caption-row">
-        <h3 class="tile-title">${escapeHtml(item.title || '未命名')}</h3>
-        <button type="button" class="btn-tile-edit" aria-label="编辑">编辑</button>
-      </div>
-      <p class="tile-meta">${formatDate(item.updated_at)}</p>
-    </div>`;
   bindHomeCard(card);
   grid.prepend(card);
   list.getStatusEl().innerHTML = '';
@@ -42,7 +39,6 @@ export function prependUploadedItem(item) {
 
 function bindHomeCard(card) {
   const openEdit = (e) => {
-    e.preventDefault();
     e.stopPropagation();
     openDrawer(card.dataset.id, (updated) => {
       const state = list.getState();
@@ -62,7 +58,16 @@ function bindHomeCard(card) {
       }
     });
   };
-  card.querySelector('.btn-tile-edit')?.addEventListener('click', openEdit);
+
+  const onKeyDown = (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      openEdit(e);
+    }
+  };
+
+  card.addEventListener('click', openEdit);
+  card.addEventListener('keydown', onKeyDown);
 }
 
 function stopWatch(id) {
@@ -131,18 +136,7 @@ export function renderHome(main) {
       title: '还没有预览',
       hint: '点击右上角上传，或拖拽文件到此处',
     },
-    renderCard: (item) => `
-      <article class="tile" data-id="${escapeHtml(item.id)}">
-        <a class="tile-media" href="/c/${escapeHtml(item.id)}/" target="_blank" rel="noopener">${renderCardThumb(item)}</a>
-        <div class="tile-caption">
-          <div class="tile-caption-row">
-            <h3 class="tile-title">${escapeHtml(item.title || '未命名')}</h3>
-            <button type="button" class="btn-tile-edit" aria-label="编辑">编辑</button>
-          </div>
-          <p class="tile-meta">${formatDate(item.updated_at)}</p>
-        </div>
-      </article>
-    `,
+    renderCard: tileCardHTML,
     bindCard: (card, item) => {
       bindHomeCard(card);
       if (item?.screenshot_status === 'pending') {

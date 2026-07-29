@@ -14,6 +14,7 @@ import { EXPIRES_PRESETS, SCREENSHOT_STATUS_LABELS } from './enums.js';
 
 let currentId = null;
 let onUpdate = null;
+let pointerDownOnOverlay = false;
 
 /** RFC3339 → datetime-local（本地时区，分钟精度）。 */
 function toDatetimeLocalValue(iso) {
@@ -38,9 +39,18 @@ const titleEl = () => document.getElementById('drawer-title');
 
 export function initDrawer() {
   document.getElementById('drawer-close').addEventListener('click', closeDrawer);
-  overlay().addEventListener('click', (e) => {
-    if (e.target === overlay()) closeDrawer();
+
+  // Track where the pointer started so a drag that begins inside the drawer
+  // (e.g. selecting text in an input) and ends on the backdrop does not close.
+  overlay().addEventListener('pointerdown', (e) => {
+    pointerDownOnOverlay = e.target === overlay();
   });
+  overlay().addEventListener('click', (e) => {
+    const startedOnOverlay = pointerDownOnOverlay;
+    pointerDownOnOverlay = false;
+    if (startedOnOverlay && e.target === overlay()) closeDrawer();
+  });
+
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && !overlay().classList.contains('hidden')) {
       closeDrawer();
@@ -92,7 +102,17 @@ function renderDrawerContent(item) {
 
   return `
     <div class="drawer-preview">
-      <a class="card-thumb" href="${escapeHtml(publicUrl)}" target="_blank" rel="noopener">${renderThumbPicture(item)}</a>
+      <a class="card-thumb" href="${escapeHtml(publicUrl)}" target="_blank" rel="noopener">
+        ${renderThumbPicture(item)}
+        <span class="drawer-preview-hover" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 4h6v6"></path>
+            <path d="M20 4 10 14"></path>
+            <path d="M19 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h6"></path>
+          </svg>
+        </span>
+        <span class="drawer-preview-badge" aria-hidden="true">预览</span>
+      </a>
     </div>
 
     <div class="screenshot-status">

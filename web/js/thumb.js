@@ -3,6 +3,7 @@
  */
 
 import { SCREENSHOT_PLACEHOLDERS } from './enums.js';
+import { tileDisplayTitle, tileAriaLabel } from './tile.js';
 
 export function renderThumbPicture(item) {
   const ss = item.screenshot_status;
@@ -32,12 +33,12 @@ export function renderCardThumb(item) {
 export function applyItemToCard(card, item) {
   if (!card || !item) return;
   const title = card.querySelector('.tile-title');
-  if (title) title.textContent = item.title || '未命名';
+  if (title) title.textContent = tileDisplayTitle(item);
   const media = card.querySelector('.tile-media');
   if (media) {
     media.innerHTML = renderCardThumb(item);
-    if (media.tagName === 'A' && item.id) {
-      media.setAttribute('href', '/c/' + item.id + '/');
-    }
+  }
+  if (card.hasAttribute('aria-label')) {
+    card.setAttribute('aria-label', tileAriaLabel(item));
   }
 }

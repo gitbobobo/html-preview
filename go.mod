@@ -7,6 +7,7 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/skrashevich/go-webp v0.1.0
 	golang.org/x/crypto v0.54.0
+	golang.org/x/net v0.56.0
 	modernc.org/sqlite v1.54.0
 )
 

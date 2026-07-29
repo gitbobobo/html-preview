@@ -17,7 +17,8 @@ export async function uploadFile(file, opts = {}) {
   }
   showToast('上传中…');
   try {
-    const item = await uploadItem(file, { title: file.name.replace(/\.[^.]+$/, '') });
+    // Omit title so the backend parses it from the page's <title>.
+    const item = await uploadItem(file, {});
     showToast('已上传');
     opts.onSuccess?.(item);
     return item;

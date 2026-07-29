@@ -356,6 +356,24 @@ textarea { resize: vertical; min-height: 72px; }
 .tile:nth-child(5) { animation-delay: 0.14s; }
 .tile:nth-child(6) { animation-delay: 0.17s; }
 
+/* Clickable home tiles — whole card opens the edit drawer. Scoped to
+   role="button" so non-interactive trash tiles are left untouched. */
+.tile[role="button"] {
+  cursor: pointer;
+  border-radius: var(--radius);
+}
+
+.tile[role="button"]:hover .tile-media,
+.tile[role="button"]:focus-visible .tile-media {
+  transform: translateY(-3px) scale(1.01);
+  border-color: var(--ink);
+}
+
+.tile[role="button"]:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+}
+
 .tile-media {
   position: relative;
   display: block;
@@ -393,13 +411,6 @@ textarea { resize: vertical; min-height: 72px; }
   margin-top: 0.55rem;
 }
 
-.tile-caption-row {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  min-width: 0;
-}
-
 .tile-title {
   margin: 0;
   flex: 1;
@@ -411,27 +422,6 @@ textarea { resize: vertical; min-height: 72px; }
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.btn-tile-edit {
-  flex-shrink: 0;
-  margin: 0;
-  padding: 0.15rem 0.45rem;
-  font-family: inherit;
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: var(--muted);
-  background: transparent;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius);
-  cursor: pointer;
-  transition: color 0.15s, border-color 0.15s, background 0.15s;
-}
-
-.btn-tile-edit:hover {
-  color: var(--ink);
-  background: rgba(20, 36, 30, 0.04);
-  border-color: var(--ink);
 }
 
 .tile-meta {
@@ -751,6 +741,49 @@ textarea { resize: vertical; min-height: 72px; }
   height: 100%;
   display: block;
   object-fit: cover;
+}
+
+.drawer-preview .card-thumb {
+  position: relative;
+}
+
+/* "Click to preview" affordance — scrim + external-link glyph on hover. */
+.drawer-preview-hover {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #f4f7f4;
+  background: rgba(20, 36, 30, 0.45);
+  opacity: 0;
+  transition: opacity 0.2s var(--ease);
+  pointer-events: none;
+}
+
+.drawer-preview .card-thumb:hover .drawer-preview-hover,
+.drawer-preview .card-thumb:focus-visible .drawer-preview-hover {
+  opacity: 1;
+}
+
+/* Persistent badge so the affordance is discoverable without hovering. */
+.drawer-preview-badge {
+  position: absolute;
+  right: 0.4rem;
+  bottom: 0.4rem;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--accent-ink);
+  background: var(--accent);
+  border-radius: var(--radius);
+  pointer-events: none;
+}
+
+.drawer-preview .card-thumb:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
 }
 
 .drawer-actions {

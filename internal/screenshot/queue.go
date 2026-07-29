@@ -231,7 +231,7 @@ func (s *Service) processItem(ctx context.Context, itemID string) {
 }
 
 func (s *Service) captureItem(ctx context.Context, itemID, chromePath string) error {
-	htmlPath := filepath.Join(storage.ItemDir(s.DataDir, itemID), "index.html")
+	htmlPath := storage.IndexHTMLPath(s.DataDir, itemID)
 	if _, err := os.Stat(htmlPath); err != nil {
 		return fmt.Errorf("index.html: %w", err)
 	}

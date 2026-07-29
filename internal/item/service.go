@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"html-preview/internal/htmltitle"
 	"html-preview/internal/model"
 	"html-preview/internal/storage"
 )
@@ -51,13 +52,17 @@ func (s *Service) CreateFromUpload(
 		return nil, err
 	}
 
-	if strings.TrimSpace(title) == "" {
-		title = TitleFromFilename(filename)
-	}
-
 	storedSize, err := s.saveContent(id, sourceKind, filename, content, size)
 	if err != nil {
 		return nil, err
+	}
+
+	// Client title wins; otherwise parse <title>, then fall back to the filename.
+	if strings.TrimSpace(title) == "" {
+		title = s.parsedTitle(id)
+	}
+	if strings.TrimSpace(title) == "" {
+		title = TitleFromFilename(filename)
 	}
 
 	now := time.Now().UTC()
@@ -221,13 +226,22 @@ func (s *Service) ReplaceContent(id string, filename string, content io.Reader, 
 		return nil, err
 	}
 
+	// Refresh the title from the new HTML only if it's empty or still the
+	// filename default; never clobber a custom title.
+	newTitle := it.Title
+	if parsed := s.parsedTitle(id); parsed != "" {
+		if it.Title == "" || it.Title == TitleFromFilename(it.OriginalFilename) {
+			newTitle = parsed
+		}
+	}
+
 	now := time.Now().UTC().Format(time.RFC3339)
 	_, err = s.DB.Exec(`
 		UPDATE items SET
 			source_kind = ?, original_filename = ?, size_bytes = ?,
-			screenshot_status = 'pending', screenshot_error = NULL, updated_at = ?
+			title = ?, screenshot_status = 'pending', screenshot_error = NULL, updated_at = ?
 		WHERE id = ?
-	`, sourceKind, filename, storedSize, now, id)
+	`, sourceKind, filename, storedSize, newTitle, now, id)
 	if err != nil {
 		_ = storage.RollbackItemContent(s.DataDir, id)
 		return nil, err
@@ -458,6 +472,17 @@ func requireActive(it *model.Item) error {
 
 func (s *Service) saveContent(id, sourceKind, filename string, content io.Reader, size int64) (int64, error) {
 	return s.saveContentToDir(storage.ItemDir(s.DataDir, id), sourceKind, filename, content, size)
+}
+
+// parsedTitle extracts the title from the item's stored index.html; any open or
+// parse error yields "".
+func (s *Service) parsedTitle(id string) string {
+	f, err := os.Open(storage.IndexHTMLPath(s.DataDir, id))
+	if err != nil {
+		return ""
+	}
+	defer f.Close()
+	return htmltitle.ExtractHTMLTitle(f)
 }
 
 func (s *Service) saveContentToDir(dir, sourceKind, filename string, content io.Reader, size int64) (int64, error) {

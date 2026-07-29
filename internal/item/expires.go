@@ -3,6 +3,7 @@ package item
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -55,16 +56,22 @@ func PublicPath(id string) string {
 	return "/c/" + id + "/"
 }
 
+// TitleFromFilename derives a default item title from an upload filename: it
+// strips any path separators and removes one trailing extension (e.g.
+// "page.html" -> "page", "archive.tar.gz" -> "archive.tar").
 func TitleFromFilename(filename string) string {
-	filename = strings.TrimSpace(filename)
-	if filename == "" {
+	base := strings.TrimSpace(filename)
+	if base == "" {
 		return ""
 	}
-	if i := strings.LastIndex(filename, "/"); i >= 0 {
-		filename = filename[i+1:]
+	if i := strings.LastIndex(base, "/"); i >= 0 {
+		base = base[i+1:]
 	}
-	if i := strings.LastIndex(filename, "\\"); i >= 0 {
-		filename = filename[i+1:]
+	if i := strings.LastIndex(base, "\\"); i >= 0 {
+		base = base[i+1:]
 	}
-	return filename
+	if ext := filepath.Ext(base); ext != "" {
+		base = strings.TrimSuffix(base, ext)
+	}
+	return base
 }
