@@ -108,9 +108,10 @@ HTML 上传会归一保存为 `index.html`；ZIP 按相对路径解压到项目�
 | `7d` | 7 天后 |
 | `30d` | 30 天后 |
 | `90d` | 90 天后 |
-| `never` | 永久（或不传任何过期字段） |
+| `never` | 永久 |
+| （不传） | 上传默认 `30d`；PATCH 不传过期字段则不修改 |
 
-若同时传 `expires_at`（ISO 8601 / RFC3339）与 `expires_in`，以 **`expires_at` 为准**。
+若同时传 `expires_at`（ISO 8601 / RFC3339）与 `expires_in`，以 **`expires_at` 为准**。永久必须显式传 `never`。
 
 过期后后台自动移入回收站；回收站保留 30 天后硬删。
 
@@ -138,6 +139,7 @@ curl -G "$BASE_URL/api/items" \
   -H "Authorization: Bearer $API_KEY" \
   --data-urlencode "q=关键词" \
   --data-urlencode "status=active" \
+  --data-urlencode "favorite=true" \
   --data-urlencode "page=1" \
   --data-urlencode "page_size=24"
 ```
@@ -146,8 +148,11 @@ curl -G "$BASE_URL/api/items" \
 |---|---|
 | `q` | 标题/备注关键词 |
 | `status` | `active`（默认）或 `trash` |
+| `favorite` | 可选，仅接受字面 `true`（只返回收藏项，其他值返回 `40001`） |
 | `page` | 页码，默认 1 |
 | `page_size` | 每页数量，默认 24，最大 100 |
+
+排序固定为 `updated_at` 倒序；`favorite` 可与 `q`、`status`、`page`、`page_size` 自由组合。
 
 响应 `data`：`{items, page, page_size, total}`。
 
@@ -166,6 +171,26 @@ curl -X PATCH "$BASE_URL/api/items/$ITEM_ID" \
   -H "Content-Type: application/json; charset=utf-8" \
   -d '{"title":"新标题","notes":"新备注","expires_in":"30d"}'
 ```
+
+### 收藏 / 取消收藏
+
+```bash
+curl -X POST "$BASE_URL/api/items/$ITEM_ID/favorite" \
+  -H "Authorization: Bearer $API_KEY"
+```
+
+```bash
+curl -X DELETE "$BASE_URL/api/items/$ITEM_ID/favorite" \
+  -H "Authorization: Bearer $API_KEY"
+```
+
+两者均返回更新后的 item；幂等，重复收藏/取消都成功（重复收藏保持首次的 `favorited_at`）。仅限 `active` 条目：回收站项返回 `40900`，不存在返回 `40400`。
+
+- 收藏切换**不更新** `updated_at`，不影响列表排序。
+- `favorite` 不能通过 `PATCH /api/items/{id}` 修改（未知字段被忽略），须用上述专用端点。
+- 收藏为全局状态，所有 API Key 共享同一份收藏。
+
+Item 字段：`favorite`（bool）、`favorited_at`（RFC3339 UTC 字符串或 `null`，收藏时间；取消后为 `null`）。
 
 ### 替换内容（ID 与公开 URL 不变，触发重新截图）
 
@@ -209,7 +234,7 @@ curl "$BASE_URL/api/items/$ITEM_ID/thumb/desktop" \
 
 | 资源 | Session（Cookie） | API Key（Bearer） |
 |---|---|---|
-| Items 读/写（上传、PATCH、替换、回收站、恢复、硬删） | ✅ | ✅ |
+| Items 读/写（上传、PATCH、替换、收藏、回收站、恢复、硬删） | ✅ | ✅ |
 | 缩略图 | ✅ | ✅ |
 | API Key CRUD（`/api/keys*`） | ✅ | ❌（40300） |
 | 改密、浏览器安装（`/api/settings/*`） | ✅ | ❌（40300） |

@@ -15,8 +15,10 @@ const DEFAULT_PAGE_SIZE = 24;
  * @param {string} opts.statusId
  * @param {(item: object) => string} opts.renderCard
  * @param {(card: HTMLElement, item: object) => void} opts.bindCard
- * @param {{ title: string, hint?: string, icon?: 'library'|'trash'|'search' }} opts.emptyText
+ * @param {{ title: string, hint?: string, icon?: 'library'|'trash'|'search'|'star' } | () => { title: string, hint?: string, icon?: 'library'|'trash'|'search'|'star' }} opts.emptyText
  * @param {string} [opts.searchInputId]
+ * @param {object} [opts.extraQuery] — opaque fields merged into listItems
+ * @param {(item: object) => boolean} [opts.matchesItem] — client-side membership filter
  */
 export function createItemListPage({
   status,
@@ -27,6 +29,8 @@ export function createItemListPage({
   bindCard,
   emptyText,
   searchInputId,
+  extraQuery: initialExtraQuery = {},
+  matchesItem = () => true,
 }) {
   const state = {
     q: '',
@@ -38,7 +42,13 @@ export function createItemListPage({
     hasMore: true,
   };
 
+  let extraQuery = { ...initialExtraQuery };
   let observer = null;
+
+  function resolveEmptyCopy() {
+    if (typeof emptyText === 'function') return emptyText();
+    return emptyText;
+  }
 
   function setupObserver() {
     if (observer) observer.disconnect();
@@ -70,6 +80,7 @@ export function createItemListPage({
         status,
         page: state.page,
         page_size: state.pageSize,
+        ...extraQuery,
       });
 
       state.total = data.total;
@@ -105,11 +116,19 @@ export function createItemListPage({
       el.innerHTML = '';
     } else if (kind === 'empty') {
       const searching = Boolean(state.q);
-      const iconKind = searching ? 'search' : (emptyText.icon || 'library');
-      const title = searching ? '没有匹配结果' : emptyText.title;
-      const hint = searching
-        ? '试试其他关键词'
-        : (emptyText.hint || '');
+      let iconKind;
+      let title;
+      let hint;
+      if (searching) {
+        iconKind = 'search';
+        title = '没有匹配结果';
+        hint = '试试其他关键词';
+      } else {
+        const copy = resolveEmptyCopy();
+        iconKind = copy.icon || 'library';
+        title = copy.title;
+        hint = copy.hint || '';
+      }
       const hintHtml = hint
         ? `<p class="empty-hint">${escapeHtml(hint)}</p>`
         : '';
@@ -125,6 +144,39 @@ export function createItemListPage({
     } else {
       el.innerHTML = '';
     }
+  }
+
+  function findCard(id) {
+    const grid = document.getElementById(gridId);
+    return grid?.querySelector(`[data-id="${CSS.escape(id)}"]`);
+  }
+
+  function removeItem(id) {
+    const idx = state.items.findIndex((i) => i.id === id);
+    if (idx >= 0) state.items.splice(idx, 1);
+    const card = findCard(id);
+    if (card) card.remove();
+    if (state.items.length === 0) setStatus('empty');
+    return { action: 'removed' };
+  }
+
+  function syncItem(item) {
+    if (!item) return { action: 'none' };
+
+    if (!matchesItem(item)) {
+      return removeItem(item.id);
+    }
+
+    const idx = state.items.findIndex((i) => i.id === item.id);
+    const card = findCard(item.id);
+
+    if (idx >= 0) {
+      const prev = state.items[idx];
+      state.items[idx] = item;
+      return { action: 'updated', card, item, prev };
+    }
+
+    return { action: 'none', item };
   }
 
   function init() {
@@ -145,11 +197,24 @@ export function createItemListPage({
     }
   }
 
+  function setExtraQuery(next) {
+    const merged = next ? { ...next } : {};
+    const same = Object.keys(merged).length === Object.keys(extraQuery).length
+      && Object.keys(merged).every((k) => merged[k] === extraQuery[k]);
+    if (same) return;
+    extraQuery = merged;
+    resetAndLoad();
+  }
+
   return {
     init,
     destroy,
     resetAndLoad,
+    setExtraQuery,
     setStatus,
+    syncItem,
+    removeItem,
+    matchesItem,
     getState: () => state,
     getGrid: () => document.getElementById(gridId),
     getStatusEl: () => document.getElementById(statusId),
@@ -171,6 +236,12 @@ function emptyIcon(kind) {
       <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
         <circle cx="28" cy="28" r="14" stroke="currentColor" stroke-width="2.5"/>
         <path d="M38 38l12 12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+      </svg>`;
+  }
+  if (kind === 'star') {
+    return `
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M32 6L39.6 21.4 56.4 23.8 44.2 35.6 47.1 52.3 32 44.3 16.9 52.3 19.8 35.6 7.6 23.8 24.4 21.4Z" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/>
       </svg>`;
   }
   // library / default — stacked frames

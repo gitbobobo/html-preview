@@ -2,10 +2,11 @@
  * Home — brand + search + grid; whole page is drop target.
  */
 
-import { formatDate } from './util.js';
-import { getItem } from './api.js';
+import { formatDate, showToast } from './util.js';
+import { getItem, favoriteItem, unfavoriteItem } from './api.js';
 import { applyItemToCard } from './thumb.js';
-import { tileCardHTML } from './tile.js';
+import { tileCardHTML, applyFavoriteToCard } from './tile.js';
+import { STAR_ICON } from './icons.js';
 import { openDrawer } from './drawer.js';
 import { createItemListPage } from './item-list.js';
 import { uploadFile } from './upload.js';
@@ -21,9 +22,24 @@ function htmlToElement(html) {
   return template.content.firstElementChild;
 }
 
+function homeEmptyCopy() {
+  if (readFavoriteParam()) {
+    return {
+      icon: 'star',
+      title: '还没有收藏',
+      hint: '点亮卡片右上角的星标后，会显示在这里',
+    };
+  }
+  return {
+    icon: 'library',
+    title: '还没有预览',
+    hint: '点击右上角上传，或拖拽文件到此处',
+  };
+}
+
 /** Called after a successful upload (header or drop). */
 export function prependUploadedItem(item) {
-  if (!list) return false;
+  if (!list || !list.matchesItem(item)) return false;
   const state = list.getState();
   state.items.unshift(item);
   const grid = list.getGrid();
@@ -37,37 +53,78 @@ export function prependUploadedItem(item) {
   return true;
 }
 
+function applyDrawerUpdate(card, updated) {
+  const result = list.syncItem(updated);
+  if (result.action === 'removed') {
+    stopWatch(card.dataset.id);
+    return;
+  }
+  if (result.action !== 'updated') return;
+  applyItemToCard(card, updated);
+  if (result.prev.favorite !== updated.favorite) {
+    applyFavoriteToCard(card, updated.favorite);
+  }
+  const meta = card.querySelector('.tile-meta');
+  if (meta && updated.updated_at) meta.textContent = formatDate(updated.updated_at);
+  if (updated.screenshot_status === 'pending') {
+    watchScreenshot(updated.id);
+  }
+}
+
 function bindHomeCard(card) {
+  const favBtn = card.querySelector('.tile-fav');
+  if (favBtn) {
+    favBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleFavoriteCard(card);
+    });
+  }
+
   const openEdit = (e) => {
     e.stopPropagation();
     openDrawer(card.dataset.id, (updated) => {
-      const state = list.getState();
       if (updated === null) {
         stopWatch(card.dataset.id);
-        card.remove();
-        state.items = state.items.filter((i) => i.id !== card.dataset.id);
+        list.removeItem(card.dataset.id);
         return;
       }
-      const idx = state.items.findIndex((i) => i.id === updated.id);
-      if (idx >= 0) state.items[idx] = updated;
-      applyItemToCard(card, updated);
-      const meta = card.querySelector('.tile-meta');
-      if (meta && updated.updated_at) meta.textContent = formatDate(updated.updated_at);
-      if (updated.screenshot_status === 'pending') {
-        watchScreenshot(updated.id);
-      }
+      applyDrawerUpdate(card, updated);
     });
   };
 
   const onKeyDown = (e) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      openEdit(e);
-    }
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    if (e.target !== card) return;
+    e.preventDefault();
+    openEdit(e);
   };
 
   card.addEventListener('click', openEdit);
   card.addEventListener('keydown', onKeyDown);
+}
+
+/** Star/unstar from the tile badge — optimistic, reverted + toasted on failure. */
+async function toggleFavoriteCard(card) {
+  const state = list?.getState();
+  const idx = state ? state.items.findIndex((i) => i.id === card.dataset.id) : -1;
+  if (idx < 0) return;
+  const before = state.items[idx];
+  applyFavoriteToCard(card, !before.favorite);
+  try {
+    const updated = before.favorite
+      ? await unfavoriteItem(before.id)
+      : await favoriteItem(before.id);
+    const result = list.syncItem(updated);
+    if (result.action === 'removed') {
+      stopWatch(before.id);
+    } else if (result.action === 'updated') {
+      applyFavoriteToCard(card, updated.favorite);
+    }
+  } catch (err) {
+    applyFavoriteToCard(card, before.favorite);
+    showToast(err.message);
+  }
 }
 
 function stopWatch(id) {
@@ -106,11 +163,34 @@ function watchScreenshot(id) {
   };
   const timer = setInterval(tick, 1500);
   screenshotWatchers.set(id, timer);
-  // first check soon — screenshot often finishes in a few seconds
   setTimeout(tick, 800);
 }
 
+/** Only the literal "true" counts — same rule as the backend. */
+function readFavoriteParam() {
+  return new URLSearchParams(location.search).get('favorite') === 'true';
+}
+
+/** Keep the filter shareable/refreshable via the URL (no localStorage). */
+function writeFavoriteParam(on) {
+  const url = new URL(location.href);
+  if (on) url.searchParams.set('favorite', 'true');
+  else url.searchParams.delete('favorite');
+  history.replaceState(null, '', url);
+}
+
+function setFavoriteFilter(on) {
+  writeFavoriteParam(on);
+  const btn = document.getElementById('home-favorite-toggle');
+  if (btn) {
+    btn.classList.toggle('active', on);
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  }
+  list?.setExtraQuery(on ? { favorite: true } : {});
+}
+
 export function renderHome(main) {
+  const favoriteOnly = readFavoriteParam();
   main.innerHTML = `
     <section class="home-stage">
       <h1 class="brand-mark">HTML Preview</h1>
@@ -118,6 +198,9 @@ export function renderHome(main) {
         <div class="search-wrap">
           <input type="search" id="home-search" placeholder="搜索" autocomplete="off">
         </div>
+        <button type="button" class="filter-toggle${favoriteOnly ? ' active' : ''}" id="home-favorite-toggle" aria-pressed="${favoriteOnly}" title="仅看收藏">
+          ${STAR_ICON}<span>仅看收藏</span>
+        </button>
       </div>
     </section>
     <div class="grid" id="item-grid"></div>
@@ -127,15 +210,13 @@ export function renderHome(main) {
 
   list = createItemListPage({
     status: 'active',
+    extraQuery: favoriteOnly ? { favorite: true } : {},
+    matchesItem: (item) => !readFavoriteParam() || item.favorite,
     gridId: 'item-grid',
     sentinelId: 'scroll-sentinel',
     statusId: 'home-status',
     searchInputId: 'home-search',
-    emptyText: {
-      icon: 'library',
-      title: '还没有预览',
-      hint: '点击右上角上传，或拖拽文件到此处',
-    },
+    emptyText: homeEmptyCopy,
     renderCard: tileCardHTML,
     bindCard: (card, item) => {
       bindHomeCard(card);
@@ -143,6 +224,10 @@ export function renderHome(main) {
         watchScreenshot(item.id);
       }
     },
+  });
+
+  document.getElementById('home-favorite-toggle').addEventListener('click', (e) => {
+    setFavoriteFilter(e.currentTarget.getAttribute('aria-pressed') !== 'true');
   });
 
   setupPageDrop(main);

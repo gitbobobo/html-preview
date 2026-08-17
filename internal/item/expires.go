@@ -21,8 +21,11 @@ func ParseExpires(expiresIn, expiresAt string) (*time.Time, error) {
 		return &utc, nil
 	}
 
-	if expiresIn == "" || expiresIn == "never" {
+	if expiresIn == "never" {
 		return nil, nil
+	}
+	if expiresIn == "" {
+		expiresIn = "30d"
 	}
 
 	now := time.Now().UTC()

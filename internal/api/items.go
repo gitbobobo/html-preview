@@ -16,6 +16,12 @@ func (s *Server) ListItems(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query().Get("q")
 	status := r.URL.Query().Get("status")
 
+	favorite := r.URL.Query().Get("favorite")
+	if favorite != "" && favorite != "true" {
+		s.writeErr(w, 40001, "invalid favorite")
+		return
+	}
+
 	page := 1
 	if v := r.URL.Query().Get("page"); v != "" {
 		n, err := strconv.Atoi(v)
@@ -36,7 +42,7 @@ func (s *Server) ListItems(w http.ResponseWriter, r *http.Request) {
 		pageSize = n
 	}
 
-	result, err := s.Items.List(q, status, page, pageSize)
+	result, err := s.Items.List(q, status, favorite == "true", page, pageSize)
 	if err != nil {
 		if errors.Is(err, item.ErrBadStatus) {
 			s.writeErr(w, 40001, "invalid status")
@@ -239,6 +245,31 @@ func (s *Server) RestoreItem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	it, err := s.Items.Restore(id)
+	if err != nil {
+		code, msg := mapItemError(err)
+		s.writeErr(w, code, msg)
+		return
+	}
+
+	writeOK(w, it)
+}
+
+func (s *Server) FavoriteItem(w http.ResponseWriter, r *http.Request) {
+	s.setItemFavorite(w, r, true)
+}
+
+func (s *Server) UnfavoriteItem(w http.ResponseWriter, r *http.Request) {
+	s.setItemFavorite(w, r, false)
+}
+
+func (s *Server) setItemFavorite(w http.ResponseWriter, r *http.Request, favorite bool) {
+	id := r.PathValue("id")
+	if id == "" {
+		s.writeErr(w, 40001, "id is required")
+		return
+	}
+
+	it, err := s.Items.SetFavorite(id, favorite)
 	if err != nil {
 		code, msg := mapItemError(err)
 		s.writeErr(w, code, msg)

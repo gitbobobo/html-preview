@@ -7,9 +7,12 @@ import {
   patchItem,
   replaceItemContent,
   trashItem,
+  favoriteItem,
+  unfavoriteItem,
 } from './api.js';
 import { showToast, escapeHtml } from './util.js';
 import { renderThumbPicture } from './thumb.js';
+import { STAR_ICON } from './icons.js';
 import { EXPIRES_PRESETS, SCREENSHOT_STATUS_LABELS } from './enums.js';
 
 let currentId = null;
@@ -151,6 +154,9 @@ function renderDrawerContent(item) {
     </form>
 
     <div class="drawer-actions">
+      <button type="button" class="btn btn-secondary btn-favorite${item.favorite ? ' active' : ''}" id="drawer-favorite" aria-pressed="${Boolean(item.favorite)}">
+        ${STAR_ICON}<span id="drawer-favorite-label">${item.favorite ? '已收藏' : '收藏'}</span>
+      </button>
       <a class="btn btn-primary" id="drawer-open-preview" href="${escapeHtml(publicUrl)}" target="_blank" rel="noopener">打开预览</a>
       <button type="button" class="btn btn-secondary" id="drawer-copy-link">复制链接</button>
       <button type="button" class="btn btn-secondary" id="drawer-replace">替换</button>
@@ -172,6 +178,28 @@ function bindDrawerEvents(item) {
 
   expiresSelect.addEventListener('change', () => {
     customWrap.classList.toggle('hidden', expiresSelect.value !== 'custom');
+  });
+
+  // Favorite toggle — syncs the grid tile's star via onUpdate.
+  const favBtn = document.getElementById('drawer-favorite');
+  const favLabel = document.getElementById('drawer-favorite-label');
+  const applyFavorite = (on) => {
+    favBtn.classList.toggle('active', on);
+    favBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    favLabel.textContent = on ? '已收藏' : '收藏';
+  };
+  applyFavorite(Boolean(item.favorite));
+  favBtn.addEventListener('click', async () => {
+    const on = favBtn.getAttribute('aria-pressed') === 'true';
+    try {
+      const updated = on ? await unfavoriteItem(item.id) : await favoriteItem(item.id);
+      item = updated;
+      applyFavorite(Boolean(updated.favorite));
+      showToast(updated.favorite ? '已收藏' : '已取消收藏');
+      if (onUpdate) onUpdate(updated);
+    } catch (err) {
+      showToast(err.message);
+    }
   });
 
   document.getElementById('drawer-form').addEventListener('submit', async (e) => {

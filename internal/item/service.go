@@ -83,7 +83,7 @@ func (s *Service) CreateFromUpload(
 	return s.GetByID(id)
 }
 
-func (s *Service) List(q, status string, page, pageSize int) (*ListResult, error) {
+func (s *Service) List(q, status string, favoriteOnly bool, page, pageSize int) (*ListResult, error) {
 	if status == "" {
 		status = "active"
 	}
@@ -104,6 +104,9 @@ func (s *Service) List(q, status string, page, pageSize int) (*ListResult, error
 
 	where := "status = ?"
 	args := []any{status}
+	if favoriteOnly {
+		where += " AND favorite = 1"
+	}
 	if q != "" {
 		where += " AND (title LIKE ? ESCAPE '\\' OR notes LIKE ? ESCAPE '\\')"
 		pattern := "%" + escapeLike(q) + "%"
@@ -118,7 +121,8 @@ func (s *Service) List(q, status string, page, pageSize int) (*ListResult, error
 	offset := (page - 1) * pageSize
 	query := `
 		SELECT id, title, notes, status, source_kind, original_filename, size_bytes,
-			expires_at, trashed_at, screenshot_status, screenshot_error, created_at, updated_at
+			expires_at, trashed_at, favorite, favorited_at, screenshot_status, screenshot_error,
+			created_at, updated_at
 		FROM items WHERE ` + where + ` ORDER BY updated_at DESC LIMIT ? OFFSET ?`
 	listArgs := append(append([]any{}, args...), pageSize, offset)
 
@@ -291,6 +295,38 @@ func (s *Service) Restore(id string) (*model.Item, error) {
 	return s.GetByID(id)
 }
 
+// SetFavorite stars or unstars an active item. It is idempotent: matching the
+// current state skips the write entirely. Favoriting stamps favorited_at;
+// unfavoriting clears it. updated_at is deliberately left untouched so starring
+// does not reshuffle updated_at DESC listings.
+func (s *Service) SetFavorite(id string, favorite bool) (*model.Item, error) {
+	it, err := s.GetByID(id)
+	if err != nil {
+		return nil, err
+	}
+	if err := requireActive(it); err != nil {
+		return nil, err
+	}
+
+	if it.Favorite == favorite {
+		return it, nil
+	}
+
+	var favoritedAt any
+	if favorite {
+		favoritedAt = time.Now().UTC().Format(time.RFC3339)
+	}
+
+	_, err = s.DB.Exec(`
+		UPDATE items SET favorite = ?, favorited_at = ? WHERE id = ?
+	`, favorite, favoritedAt, id)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.GetByID(id)
+}
+
 func (s *Service) PermanentDelete(id string) error {
 	if _, err := s.GetByID(id); err != nil {
 		return err
@@ -307,7 +343,8 @@ func (s *Service) PermanentDelete(id string) error {
 func (s *Service) GetByID(id string) (*model.Item, error) {
 	row := s.DB.QueryRow(`
 		SELECT id, title, notes, status, source_kind, original_filename, size_bytes,
-			expires_at, trashed_at, screenshot_status, screenshot_error, created_at, updated_at
+			expires_at, trashed_at, favorite, favorited_at, screenshot_status, screenshot_error,
+			created_at, updated_at
 		FROM items WHERE id = ?
 	`, id)
 
@@ -422,11 +459,11 @@ type rowScanner interface {
 
 func scanItem(row rowScanner) (*model.Item, error) {
 	var it model.Item
-	var expiresAt, trashedAt, screenshotError sql.NullString
+	var expiresAt, trashedAt, favoritedAt, screenshotError sql.NullString
 	err := row.Scan(
 		&it.ID, &it.Title, &it.Notes, &it.Status, &it.SourceKind, &it.OriginalFilename,
-		&it.SizeBytes, &expiresAt, &trashedAt, &it.ScreenshotStatus, &screenshotError,
-		&it.CreatedAt, &it.UpdatedAt,
+		&it.SizeBytes, &expiresAt, &trashedAt, &it.Favorite, &favoritedAt,
+		&it.ScreenshotStatus, &screenshotError, &it.CreatedAt, &it.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -438,6 +475,10 @@ func scanItem(row rowScanner) (*model.Item, error) {
 	if trashedAt.Valid {
 		v := trashedAt.String
 		it.TrashedAt = &v
+	}
+	if favoritedAt.Valid {
+		v := favoritedAt.String
+		it.FavoritedAt = &v
 	}
 	if screenshotError.Valid {
 		v := screenshotError.String

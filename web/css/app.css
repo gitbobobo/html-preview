@@ -333,6 +333,35 @@ textarea { resize: vertical; min-height: 72px; }
   background: #fff;
 }
 
+/* "Favorites only" toggle beside the search box. */
+.filter-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+  padding: 0 0.95rem;
+  font-size: 0.9rem;
+  font-family: inherit;
+  font-weight: 600;
+  color: var(--muted);
+  background: #fff;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+
+.filter-toggle:hover { color: var(--ink); }
+
+.filter-toggle.active {
+  color: var(--accent-ink);
+  background: var(--accent);
+  border-color: rgba(20, 36, 30, 0.15);
+}
+
+.filter-toggle svg { width: 0.95rem; height: 0.95rem; }
+
 /* ── Grid ── */
 
 .grid {
@@ -406,6 +435,37 @@ textarea { resize: vertical; min-height: 72px; }
   width: 100%;
   height: 100%;
 }
+
+/* Always-visible favorite star, pinned to the media's top-right corner. */
+.tile-fav {
+  position: absolute;
+  top: 0.45rem;
+  right: 0.45rem;
+  display: grid;
+  place-items: center;
+  width: 1.8rem;
+  height: 1.8rem;
+  padding: 0;
+  color: var(--ink);
+  background: rgba(247, 250, 247, 0.92);
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.15s var(--ease);
+}
+
+.tile-fav:hover { border-color: var(--ink); }
+.tile-fav:active { transform: scale(0.9); }
+.tile-fav:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+.tile-fav svg { width: 0.9rem; height: 0.9rem; display: block; }
+
+.tile-fav.active {
+  background: var(--accent);
+  border-color: rgba(20, 36, 30, 0.2);
+}
+
+.tile-fav.active svg { fill: currentColor; }
 
 .tile-caption {
   margin-top: 0.55rem;
@@ -794,6 +854,17 @@ textarea { resize: vertical; min-height: 72px; }
   padding-top: 1.1rem;
   border-top: 1px solid var(--line);
 }
+
+.drawer-actions .btn svg { width: 0.9rem; height: 0.9rem; }
+
+/* Favorite toggle inside the actions row — lit like the tile star. */
+.btn-favorite.active {
+  color: var(--accent-ink);
+  background: var(--accent);
+  border-color: rgba(20, 36, 30, 0.15);
+}
+
+.btn-favorite.active svg { fill: currentColor; }
 
 .screenshot-status {
   margin-bottom: 1rem;

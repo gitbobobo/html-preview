@@ -10,6 +10,8 @@ type Item struct {
 	SizeBytes         int64   `json:"size_bytes"`
 	ExpiresAt         *string `json:"expires_at"`
 	TrashedAt         *string `json:"trashed_at"`
+	Favorite          bool    `json:"favorite"`
+	FavoritedAt       *string `json:"favorited_at"`
 	ScreenshotStatus  string  `json:"screenshot_status"`
 	ScreenshotError   *string `json:"screenshot_error"`
 	CreatedAt         string  `json:"created_at"`

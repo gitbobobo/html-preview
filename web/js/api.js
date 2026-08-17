@@ -76,6 +76,8 @@ export async function listItems(params = {}) {
   const qs = new URLSearchParams();
   if (params.q) qs.set('q', params.q);
   if (params.status) qs.set('status', params.status);
+  // Backend only accepts the literal "true"; anything else is a 40001.
+  if (params.favorite === true) qs.set('favorite', 'true');
   if (params.page) qs.set('page', String(params.page));
   if (params.page_size) qs.set('page_size', String(params.page_size));
   const query = qs.toString();
@@ -119,6 +121,14 @@ export async function restoreItem(id) {
 
 export async function permanentDeleteItem(id) {
   return api('/items/' + encodeURIComponent(id) + '/permanent', { method: 'DELETE' });
+}
+
+export async function favoriteItem(id) {
+  return api('/items/' + encodeURIComponent(id) + '/favorite', { method: 'POST' });
+}
+
+export async function unfavoriteItem(id) {
+  return api('/items/' + encodeURIComponent(id) + '/favorite', { method: 'DELETE' });
 }
 
 export async function listKeys() {

@@ -34,10 +34,8 @@ export function applyItemToCard(card, item) {
   if (!card || !item) return;
   const title = card.querySelector('.tile-title');
   if (title) title.textContent = tileDisplayTitle(item);
-  const media = card.querySelector('.tile-media');
-  if (media) {
-    media.innerHTML = renderCardThumb(item);
-  }
+  const thumb = card.querySelector('.card-thumb');
+  if (thumb) thumb.outerHTML = renderCardThumb(item);
   if (card.hasAttribute('aria-label')) {
     card.setAttribute('aria-label', tileAriaLabel(item));
   }
