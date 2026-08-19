@@ -75,7 +75,7 @@ Authorization: Bearer <api_key>
 每个预览项有固定公开路径（**无需鉴权**）：
 
 ```
-{cbase_url}/c/{id}/
+{base_url}/c/{id}/
 ```
 
 示例：`http://localhost:7849/c/AbCdEfGhIjKlMnOp/`
